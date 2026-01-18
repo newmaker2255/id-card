@@ -276,36 +276,37 @@ downloadBtn.onclick = async ()=>{
    return;
  }
 
- const student=(nameInput.value.trim()||"STUDENT").replace(/\s+/g,"_");
+ const student = (nameInput.value.trim()||"STUDENT").replace(/\s+/g,"_");
 
- // remove mobile scale transforms only
- const fT = frontCard.style.transform;
- const bT = backCard.style.transform;
-
- frontCard.style.transform="none";
- backCard.style.transform="none";
-
- await new Promise(r=>setTimeout(r,50));
-
- // capture front
- const frontCanvas = await html2canvas(frontCard,{scale:3,useCORS:true});
- const link1=document.createElement("a");
- link1.href=frontCanvas.toDataURL("image/png");
- link1.download=student+"_front.png";
+ // Capture FRONT with transform fixes inside cloned DOM
+ const frontCanvas = await html2canvas(frontCard,{
+   scale:3,
+   useCORS:true,
+   onclone: (clonedDoc) => {
+     // Remove transforms only inside cloned copy
+     clonedDoc.querySelector("#frontCard").style.transform = "none";
+     clonedDoc.querySelector(".photo").style.transform = "none";
+   }
+ });
+ const link1 = document.createElement("a");
+ link1.href = frontCanvas.toDataURL("image/png");
+ link1.download = student+"_front.png";
  link1.click();
 
- await new Promise(r=>setTimeout(r,200));
+ await new Promise(r=>setTimeout(r,300));
 
- // capture back
- const backCanvas = await html2canvas(backCard,{scale:3,useCORS:true});
- const link2=document.createElement("a");
- link2.href=backCanvas.toDataURL("image/png");
- link2.download=student+"_back.png";
+ // Capture BACK
+ const backCanvas = await html2canvas(backCard,{
+   scale:3,
+   useCORS:true,
+   onclone: (clonedDoc) => {
+     clonedDoc.querySelector("#backCard").style.transform = "none";
+   }
+ });
+ const link2 = document.createElement("a");
+ link2.href = backCanvas.toDataURL("image/png");
+ link2.download = student+"_back.png";
  link2.click();
-
- // restore transforms
- frontCard.style.transform=fT;
- backCard.style.transform=bT;
 };
 
 </script>
