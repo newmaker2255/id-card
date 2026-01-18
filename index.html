@@ -58,6 +58,49 @@ button:hover{background:#084298;}
  justify-content:center;align-items:center;z-index:10;
 }
 #cropBox{background:#fff;padding:15px;border-radius:10px;text-align:center;}
+
+/* ===== MOBILE RESPONSIVE FIX ===== */
+@media (max-width: 768px){
+
+  body{padding:10px;}
+
+  .container{
+    flex-direction:column;
+    align-items:center;
+  }
+
+  .formbox{
+    width:100%;
+    max-width:350px;
+  }
+
+  .previewSection{
+    flex-direction:column;
+    align-items:center;
+  }
+
+  .card,
+  .backcard{
+    transform: scale(0.9);
+    transform-origin: top center;
+  }
+
+  button{
+    width:100%;
+    margin-bottom:6px;
+  }
+
+  input, textarea{
+    font-size:16px;
+  }
+}
+
+@media (max-width:480px){
+  .card,
+  .backcard{
+    transform: scale(0.8);
+  }
+}
 </style>
 </head>
 <body>
@@ -198,20 +241,34 @@ cropCanvas.onmousedown=e=>{drag=true;sx=e.offsetX-imgX;sy=e.offsetY-imgY;}
 cropCanvas.onmousemove=e=>{if(!drag)return;imgX=e.offsetX-sx;imgY=e.offsetY-sy;draw();}
 cropCanvas.onmouseup=()=>drag=false;
 
-applyCrop.onclick=()=>{
- const out=document.createElement("canvas");
- out.width=205; out.height=205;
- const octx=out.getContext("2d");
- octx.beginPath();
- octx.arc(102.5,102.5,102.5,0,Math.PI*2);
- octx.clip();
- const sx2=(200-imgX)/scale;
- const sy2=(200-imgY)/scale;
- const size=400/scale;
- octx.drawImage(img,sx2,sy2,size,size,0,0,205,205);
- photoPreview.src=out.toDataURL("image/png");
- cropModal.style.display="none";
-}
+applyCrop.onclick = () => {
+
+  const out = document.createElement("canvas");
+  out.width = 205;
+  out.height = 205;
+  const octx = out.getContext("2d");
+
+  // Circular mask
+  octx.beginPath();
+  octx.arc(102.5,102.5,102.5,0,Math.PI*2);
+  octx.clip();
+
+  // Correct crop source calculation
+  const centerX = 200;
+  const centerY = 200;
+  const radius = 200;
+
+  // Convert visible crop area back to original image coordinates
+  const sx = (centerX - imgX) / scale - radius / scale;
+  const sy = (centerY - imgY) / scale - radius / scale;
+  const sSize = (radius * 2) / scale;
+
+  octx.drawImage(img, sx, sy, sSize, sSize, 0, 0, 205, 205);
+
+  photoPreview.src = out.toDataURL("image/png");
+  cropModal.style.display = "none";
+};
+
 
 /* ===== Auto Fit ===== */
 function fitSingle(el,max){
@@ -247,12 +304,10 @@ submitBtn.onclick=()=>{
 
 /* ===== Download ===== */
 downloadBtn.onclick = async ()=>{
-
  if(!previewSection.classList.contains("active")){
    alert("Generate ID Card first");
    return;
  }
-
  const student=(nameInput.value.trim()||"STUDENT").replace(/\s+/g,"_");
 
  const frontCanvas = await html2canvas(frontCard,{scale:3,allowTaint:true});
