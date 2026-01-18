@@ -18,7 +18,8 @@ body{font-family:Arial;background:#eee;padding:20px;}
  position:relative;border-radius:12px;overflow:hidden;
 }
 .photo{
- position:absolute;top:179px;left:50%;transform:translateX(-50%);
+ position:absolute;top:179px;left:50%;
+ transform:translateX(-50%);
  width:205px;height:205px;border-radius:50%;overflow:hidden;
 }
 .photo img{width:100%;height:100%;object-fit:cover;}
@@ -59,47 +60,18 @@ button:hover{background:#084298;}
 }
 #cropBox{background:#fff;padding:15px;border-radius:10px;text-align:center;}
 
-/* ===== MOBILE RESPONSIVE FIX ===== */
-@media (max-width: 768px){
-
-  body{padding:10px;}
-
-  .container{
-    flex-direction:column;
-    align-items:center;
-  }
-
-  .formbox{
-    width:100%;
-    max-width:350px;
-  }
-
-  .previewSection{
-    flex-direction:column;
-    align-items:center;
-  }
-
-  .card,
-  .backcard{
-    transform: scale(0.9);
-    transform-origin: top center;
-  }
-
-  button{
-    width:100%;
-    margin-bottom:6px;
-  }
-
-  input, textarea{
-    font-size:16px;
-  }
+/* Mobile responsive */
+@media (max-width:768px){
+ body{padding:10px;}
+ .container{flex-direction:column;align-items:center;}
+ .formbox{width:100%;max-width:350px;}
+ .previewSection{flex-direction:column;align-items:center;}
+ .card,.backcard{transform:scale(0.9);transform-origin:top center;}
+ button{width:100%;margin-bottom:6px;}
+ input,textarea{font-size:16px;}
 }
-
 @media (max-width:480px){
-  .card,
-  .backcard{
-    transform: scale(0.8);
-  }
+ .card,.backcard{transform:scale(0.8);}
 }
 </style>
 </head>
@@ -163,7 +135,6 @@ button:hover{background:#084298;}
 </div>
 
 <script>
-/* Bind Elements */
 const $ = id => document.getElementById(id);
 
 const uploadInput = $("uploadInput");
@@ -200,7 +171,7 @@ const addressText = $("addressText");
 const frontCard = $("frontCard");
 const backCard = $("backCard");
 
-/* ===== Crop ===== */
+/* ===== Crop System ===== */
 let img = new Image(), scale=1, imgX=0, imgY=0, drag=false, sx=0, sy=0;
 
 changePhotoBtn.onclick = ()=> uploadInput.click();
@@ -248,20 +219,15 @@ applyCrop.onclick = () => {
   out.height = 205;
   const octx = out.getContext("2d");
 
-  // Circular mask
+  // circular mask
   octx.beginPath();
   octx.arc(102.5,102.5,102.5,0,Math.PI*2);
   octx.clip();
 
-  // Correct crop source calculation
-  const centerX = 200;
-  const centerY = 200;
-  const radius = 200;
-
-  // Convert visible crop area back to original image coordinates
-  const sx = (centerX - imgX) / scale - radius / scale;
-  const sy = (centerY - imgY) / scale - radius / scale;
-  const sSize = (radius * 2) / scale;
+  // correct source crop from visible canvas
+  const sx = (0 - imgX) / scale;
+  const sy = (0 - imgY) / scale;
+  const sSize = 400 / scale;
 
   octx.drawImage(img, sx, sy, sSize, sSize, 0, 0, 205, 205);
 
@@ -288,7 +254,7 @@ function fitTwo(el,max){
  }
 }
 
-/* ===== Generate Card ===== */
+/* ===== Generate ===== */
 submitBtn.onclick=()=>{
  nameText.innerText=nameInput.value.trim().toUpperCase()||"STUDENT NAME";
  courseText.innerText=courseInput.value.trim().toUpperCase()||"COURSE";
@@ -302,28 +268,46 @@ submitBtn.onclick=()=>{
  previewSection.classList.add("active");
 }
 
-/* ===== Download ===== */
+/* ===== FINAL DOWNLOAD FIX ===== */
 downloadBtn.onclick = async ()=>{
+
  if(!previewSection.classList.contains("active")){
    alert("Generate ID Card first");
    return;
  }
+
  const student=(nameInput.value.trim()||"STUDENT").replace(/\s+/g,"_");
 
- const frontCanvas = await html2canvas(frontCard,{scale:3,allowTaint:true});
+ // remove mobile scale transforms only
+ const fT = frontCard.style.transform;
+ const bT = backCard.style.transform;
+
+ frontCard.style.transform="none";
+ backCard.style.transform="none";
+
+ await new Promise(r=>setTimeout(r,50));
+
+ // capture front
+ const frontCanvas = await html2canvas(frontCard,{scale:3,useCORS:true});
  const link1=document.createElement("a");
  link1.href=frontCanvas.toDataURL("image/png");
  link1.download=student+"_front.png";
  link1.click();
 
- await new Promise(r=>setTimeout(r,400));
+ await new Promise(r=>setTimeout(r,200));
 
- const backCanvas = await html2canvas(backCard,{scale:3,allowTaint:true});
+ // capture back
+ const backCanvas = await html2canvas(backCard,{scale:3,useCORS:true});
  const link2=document.createElement("a");
  link2.href=backCanvas.toDataURL("image/png");
  link2.download=student+"_back.png";
  link2.click();
+
+ // restore transforms
+ frontCard.style.transform=fT;
+ backCard.style.transform=bT;
 };
+
 </script>
 
 </body>
