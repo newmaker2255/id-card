@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>ID Card Generator</title>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+<style>
+body{font-family:Arial;background:#eee;padding:20px;}
+.container{display:flex;gap:30px;}
+.previewSection{display:none;gap:30px;}
+.previewSection.active{display:flex;}
+
+/* FRONT */
+.card{
+ width:336px;height:480px;
+ background:url('frond.png') no-repeat center/cover;
+ position:relative;border-radius:12px;overflow:hidden;
+}
+.photo{
+ position:absolute;top:179px;left:50%;transform:translateX(-50%);
+ width:205px;height:205px;border-radius:50%;overflow:hidden;
+}
+.photo img{width:100%;height:100%;object-fit:cover;}
+.info{position:absolute;top:400px;width:100%;text-align:center;font-weight:bold;}
+.name{font-size:21px;}
+.course{font-size:19px;}
+.adno{font-size:14px;font-weight:normal;}
+
+/* BACK */
+.backcard{
+ width:336px;height:480px;
+ background:url('back.png') no-repeat center/cover;
+ position:relative;border-radius:12px;overflow:hidden;
+}
+.backText{
+ position:absolute;top:25px;left:35px;
+ width:266px;height:190px;
+ font-family:"Times New Roman",serif;
+ font-size:19px;line-height:26px;color:#000;
+}
+.backRow{display:flex;margin-bottom:4px;}
+.backLabel{width:130px;}
+.backValue{width:136px;overflow:hidden;}
+#parentText{white-space:nowrap;}
+#addressText{height:52px;overflow:hidden;word-break:break-word;}
+
+/* FORM */
+.formbox{background:#fff;padding:15px;border-radius:8px;width:260px;}
+input,textarea{width:100%;padding:6px;margin-bottom:8px;}
+button{padding:6px;background:#0b5ed7;color:#fff;border:none;cursor:pointer;}
+button:hover{background:#084298;}
+
+/* Crop modal */
+#cropModal{
+ display:none;position:fixed;inset:0;
+ background:rgba(0,0,0,.85);
+ justify-content:center;align-items:center;z-index:10;
+}
+#cropBox{background:#fff;padding:15px;border-radius:10px;text-align:center;}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<div class="formbox">
+<h3>ID Card Details</h3>
+
+<input type="file" id="uploadInput" accept="image/*">
+<button type="button" id="changePhotoBtn">Change Photo</button>
+
+<input id="nameInput" placeholder="Student Name">
+<input id="courseInput" placeholder="Course">
+<input id="adnoInput" placeholder="Admission No">
+<input id="yearInput" placeholder="Academic Year">
+<input id="contactInput" placeholder="Contact No">
+<input id="parentInput" placeholder="Parent's Name">
+<textarea id="addressInput" placeholder="Address"></textarea>
+
+<button id="submitBtn">Generate ID Card</button>
+<button id="downloadBtn">Download ID Card</button>
+</div>
+
+<div class="previewSection" id="previewSection">
+
+<!-- FRONT -->
+<div class="card" id="frontCard">
+ <div class="photo"><img id="photoPreview"></div>
+ <div class="info">
+   <div class="name" id="nameText">STUDENT NAME</div>
+   <div class="course" id="courseText">COURSE</div>
+   <div class="adno" id="adnoText">Admission No</div>
+ </div>
+</div>
+
+<!-- BACK -->
+<div class="backcard" id="backCard">
+ <div class="backText">
+   <div class="backRow"><span class="backLabel">Academic Year :</span><span class="backValue" id="yearText"></span></div>
+   <div class="backRow"><span class="backLabel">Contact No :</span><span class="backValue" id="contactText"></span></div>
+   <div class="backRow"><span class="backLabel">Parent's Name :</span><span class="backValue" id="parentText"></span></div>
+   <div class="backRow"><span class="backLabel">Address :</span><span class="backValue" id="addressText"></span></div>
+ </div>
+</div>
+
+</div>
+</div>
+
+<!-- Crop Modal -->
+<div id="cropModal">
+ <div id="cropBox">
+  <h3>Crop Photo</h3>
+  <canvas id="cropCanvas" width="400" height="400" style="border:1px solid #000"></canvas><br><br>
+  <button id="zoomInBtn">Zoom +</button>
+  <button id="zoomOutBtn">Zoom -</button><br><br>
+  <input type="range" id="zoomSlider" min="0.5" max="3" step="0.1" value="1"><br><br>
+  <button id="applyCrop">Apply</button>
+ </div>
+</div>
+
+<script>
+/* Bind Elements */
+const $ = id => document.getElementById(id);
+
+const uploadInput = $("uploadInput");
+const changePhotoBtn = $("changePhotoBtn");
+const cropModal = $("cropModal");
+const cropCanvas = $("cropCanvas");
+const ctx = cropCanvas.getContext("2d");
+const zoomSlider = $("zoomSlider");
+const zoomInBtn = $("zoomInBtn");
+const zoomOutBtn = $("zoomOutBtn");
+const photoPreview = $("photoPreview");
+const applyCrop = $("applyCrop");
+
+const submitBtn = $("submitBtn");
+const downloadBtn = $("downloadBtn");
+const previewSection = $("previewSection");
+
+const nameInput = $("nameInput");
+const courseInput = $("courseInput");
+const adnoInput = $("adnoInput");
+const yearInput = $("yearInput");
+const contactInput = $("contactInput");
+const parentInput = $("parentInput");
+const addressInput = $("addressInput");
+
+const nameText = $("nameText");
+const courseText = $("courseText");
+const adnoText = $("adnoText");
+const yearText = $("yearText");
+const contactText = $("contactText");
+const parentText = $("parentText");
+const addressText = $("addressText");
+
+const frontCard = $("frontCard");
+const backCard = $("backCard");
+
+/* ===== Crop ===== */
+let img = new Image(), scale=1, imgX=0, imgY=0, drag=false, sx=0, sy=0;
+
+changePhotoBtn.onclick = ()=> uploadInput.click();
+
+uploadInput.onchange = e=>{
+ const file = e.target.files[0];
+ if(!file) return;
+ const reader = new FileReader();
+ reader.onload = ev=>{
+   img.onload = ()=>{
+     scale = 1;
+     zoomSlider.value = 1;
+     imgX = (400-img.width)/2;
+     imgY = (400-img.height)/2;
+     draw();
+     cropModal.style.display="flex";
+   }
+   img.src = ev.target.result;
+ }
+ reader.readAsDataURL(file);
+};
+
+function draw(){
+ ctx.clearRect(0,0,400,400);
+ ctx.drawImage(img,imgX,imgY,img.width*scale,img.height*scale);
+ ctx.fillStyle="rgba(0,0,0,0.5)";
+ ctx.beginPath();
+ ctx.rect(0,0,400,400);
+ ctx.arc(200,200,200,0,Math.PI*2,true);
+ ctx.fill();
+}
+
+zoomSlider.oninput=()=>{scale=parseFloat(zoomSlider.value);draw();}
+zoomInBtn.onclick=()=>{scale+=0.1;zoomSlider.value=scale;draw();}
+zoomOutBtn.onclick=()=>{scale=Math.max(0.5,scale-0.1);zoomSlider.value=scale;draw();}
+
+cropCanvas.onmousedown=e=>{drag=true;sx=e.offsetX-imgX;sy=e.offsetY-imgY;}
+cropCanvas.onmousemove=e=>{if(!drag)return;imgX=e.offsetX-sx;imgY=e.offsetY-sy;draw();}
+cropCanvas.onmouseup=()=>drag=false;
+
+applyCrop.onclick=()=>{
+ const out=document.createElement("canvas");
+ out.width=205; out.height=205;
+ const octx=out.getContext("2d");
+ octx.beginPath();
+ octx.arc(102.5,102.5,102.5,0,Math.PI*2);
+ octx.clip();
+ const sx2=(200-imgX)/scale;
+ const sy2=(200-imgY)/scale;
+ const size=400/scale;
+ octx.drawImage(img,sx2,sy2,size,size,0,0,205,205);
+ photoPreview.src=out.toDataURL("image/png");
+ cropModal.style.display="none";
+}
+
+/* ===== Auto Fit ===== */
+function fitSingle(el,max){
+ el.style.fontSize=max+"px";
+ while(el.scrollWidth>el.clientWidth){
+   let s=parseInt(getComputedStyle(el).fontSize);
+   if(s<=10)break;
+   el.style.fontSize=(s-1)+"px";
+ }
+}
+function fitTwo(el,max){
+ el.style.fontSize=max+"px";
+ while(el.scrollHeight>el.clientHeight){
+   let s=parseInt(getComputedStyle(el).fontSize);
+   if(s<=10)break;
+   el.style.fontSize=(s-1)+"px";
+ }
+}
+
+/* ===== Generate Card ===== */
+submitBtn.onclick=()=>{
+ nameText.innerText=nameInput.value.trim().toUpperCase()||"STUDENT NAME";
+ courseText.innerText=courseInput.value.trim().toUpperCase()||"COURSE";
+ adnoText.innerText=adnoInput.value||"----";
+ yearText.innerText=yearInput.value||"----";
+ contactText.innerText=contactInput.value||"----";
+ parentText.innerText=parentInput.value||"----";
+ addressText.innerText=addressInput.value||"----";
+ fitSingle(parentText,19);
+ fitTwo(addressText,19);
+ previewSection.classList.add("active");
+}
+
+/* ===== Download ===== */
+downloadBtn.onclick = async ()=>{
+
+ if(!previewSection.classList.contains("active")){
+   alert("Generate ID Card first");
+   return;
+ }
+
+ const student=(nameInput.value.trim()||"STUDENT").replace(/\s+/g,"_");
+
+ const frontCanvas = await html2canvas(frontCard,{scale:3,allowTaint:true});
+ const link1=document.createElement("a");
+ link1.href=frontCanvas.toDataURL("image/png");
+ link1.download=student+"_front.png";
+ link1.click();
+
+ await new Promise(r=>setTimeout(r,400));
+
+ const backCanvas = await html2canvas(backCard,{scale:3,allowTaint:true});
+ const link2=document.createElement("a");
+ link2.href=backCanvas.toDataURL("image/png");
+ link2.download=student+"_back.png";
+ link2.click();
+};
+</script>
+
+</body>
+</html>
